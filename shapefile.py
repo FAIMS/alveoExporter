@@ -40,7 +40,7 @@ import bz2
 import tarfile
 import platform
 import lsb_release
-
+from alveoImport import process_data
 from collections import defaultdict
 import zipfile
 try:
@@ -203,6 +203,8 @@ try:
     # else:
     #     images = False
     images = True
+    apiKey=foo["Alveo APIkey"]
+    collectionName=foo["Collection Name"]
     # Ugh. But the interface is buggy.
     if (foo["Export identifier components in plain as well as formatted state (if in doubt, leave the setting as is)?"] != []):
         overrideFormattedIdentifiers = False
@@ -521,12 +523,20 @@ for relntypeid, relntypename in relntypecursor.execute(relntypequery):
     csv_writer.writerows(relncursor)
 
 
-tarf = tarfile.open("%s/%s-export.tar.bz2" % (finalExportDir,moduleName), 'w:bz2')
-try:
-    for file in files:
-        tarf.add(exportDir+file, arcname=moduleName+'/'+file)
-finally:
-    tarf.close()
+
+process_data(input_dir=exportDir, 
+                    apiKey=apiKey, 
+                    collection=collectionName,                    
+                    verbose=True)
+
+
+
+# tarf = tarfile.open("%s/%s-export.tar.bz2" % (finalExportDir,moduleName), 'w:bz2')
+# try:
+#     for file in files:
+#         tarf.add(exportDir+file, arcname=moduleName+'/'+file)
+# finally:
+#     tarf.close()
 
 
 try:

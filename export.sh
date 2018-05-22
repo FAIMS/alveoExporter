@@ -14,7 +14,7 @@ echo -e "\nTiming data:\n\nExport Started: $(date)" > $4
 python shapefile.py $1 $3 $2 > /tmp/bar 2> /tmp/foo
 
 
-python alveoImport.py --verbose --faimsJSON $2 --input $3 > /tmp/bar 2> /tmp/foo
+# python alveoImport.py --verbose --faimsJSON $2 --input $3 > /tmp/bar 2> /tmp/foo
 
 
 echo -e "\nExport Finished: $(date)\n" >> $4
