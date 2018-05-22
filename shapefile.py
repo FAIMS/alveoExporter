@@ -198,10 +198,11 @@ overrideFormattedIdentifiers = None
 try:
     foo= json.load(open(sys.argv[3],"r"))
     # print foo["Export Images and Files?"]
-    if (foo["Export Images and Files?"] != []):
-        images = True
-    else:
-        images = False
+    # if (foo["Export Images and Files?"] != []):
+    #     images = True
+    # else:
+    #     images = False
+    images = True
     # Ugh. But the interface is buggy.
     if (foo["Export identifier components in plain as well as formatted state (if in doubt, leave the setting as is)?"] != []):
         overrideFormattedIdentifiers = False

@@ -8,17 +8,10 @@
       "required":true
     },{
       "type":"text",
-      "label":"collection URI",
+      "label":"Collection Name",
       "required":true
     },
-  {
-      "type":"checkbox",
-      "label":"Export Images and Files?",
-      "items":[
-        "Please include images"           
-      ],
-      "default":"Please include images"
-    },
+  
     {
       "type":"checkbox",
       "label":"Export identifier components in plain as well as formatted state (if in doubt, leave the setting as is)?",
