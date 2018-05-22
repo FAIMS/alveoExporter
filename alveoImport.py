@@ -116,9 +116,9 @@ def process_data(input_dir=None,apiKey=None,collection=None, verbose=False,
             speaker_meta['austalk:father_pob_state'] = speaker_meta.get('faims:whereWasYourFatherBornRegion','')
             
             speaker_meta.pop("faims:timeWhenInterviewEnded",None)
-            speaker_meta.pop("faims:zoomH2nFiles",None)
-            speaker_meta.pop("faims:zoomH6ExternalMic",None)
-            speaker_meta.pop("faims:zoomH6PrimaryMic",None)
+            # speaker_meta.pop("faims:zoomH2nFiles",None)
+            # speaker_meta.pop("faims:zoomH6ExternalMic",None)
+            # speaker_meta.pop("faims:zoomH6PrimaryMic",None)
             speaker_meta.pop("faims:photoOfSignedConsentForm",None)
             
             #Remove metadata fields that have no data
