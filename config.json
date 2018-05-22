@@ -1,6 +1,6 @@
 {
   "name":"Alveo Exporter",
-  "version":"1.2.4-hardcode",
+  "version":"1.2.5-hardcode",
   "key":"a5ba24d4-5d7d-11e8-8ed0-9b594504bff4",
   "interface":[{
       "type":"text",

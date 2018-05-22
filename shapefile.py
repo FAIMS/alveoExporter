@@ -426,8 +426,6 @@ for filename in importCon.execute("select uuid, measure, freetext, certainty, at
                                                                }
             
             print "    * %s" % (newFilename)
-            files.append(newFilename+".json")
-            files.append(newFilename)
         else:
             print "<b>Unable to find file %s, from uuid: %s" % (originalDir+filename[1], filename[0]) 
     except Exception as e:
@@ -456,7 +454,7 @@ for at in importCon.execute("select aenttypename from aenttype"):
         cursor.execute("select * from %s" % (aenttypename))     
 
 
-    files.append("Entity-%s.csv" % (aenttypename))
+    
 
     csv_writer = UnicodeWriter(open(exportDir+"Entity-%s.csv" % (aenttypename), "wb+"))
     csv_writer.writerow([i[0] for i in cursor.description]) # write headers
