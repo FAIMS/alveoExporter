@@ -355,7 +355,7 @@ if images:
 
     filehash = defaultdict(int)
 
-
+    # TODO handle multivalued outputs in csv
 
     print "* File list exported:"
     for filename in importCon.execute("select uuid, measure, freetext, certainty, attributename, aenttypename from latestnondeletedaentvalue join attributekey using (attributeid) join latestnondeletedarchent using (uuid) join aenttype using (aenttypeid) where attributeisfile is not null and measure is not null"):
