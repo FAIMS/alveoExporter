@@ -350,8 +350,10 @@ for directory in importCon.execute("select distinct aenttypename, attributename 
     makeSurePathExists("%s/%s/%s" % (exportDir,clean(directory[0]), clean(directory[1])))
 
 filehash = defaultdict(int)
+outputFilename =defaultdict(int)
+outputAent = defaultdict(int)
+mime = magic.Magic(mime=True)
 
-# TODO handle multivalued outputs in csv
 
 print "* File list exported:"
 for filename in importCon.execute("select uuid, measure, freetext, certainty, attributename, aenttypename from latestnondeletedaentvalue join attributekey using (attributeid) join latestnondeletedarchent using (uuid) join aenttype using (aenttypeid) where attributeisfile is not null and measure is not null"):
