@@ -285,7 +285,7 @@ def main(argv=None): # IGNORE:C0111
         ### handle keyboard interrupt ###
         return 0
     finally:
-        shtuil.rmtree(inputDir)
+        shutil.rmtree(inputDir)
     #Uncomment for release version (so errors not displayed directly to users)
     #except Exception, e:
     #    if DEBUG or TESTRUN:
