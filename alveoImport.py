@@ -173,22 +173,24 @@ def process_data(input_dir=None,apiKey=None,collection=None, verbose=False,
             #Get photo of concent form 'PhotoOfSignedConsentForm'
             add_document(speaker['PhotoOfSignedConsentForm'], "consentform", skip_downsampled=True)
             
-            #Get H2n Audio file  'ZoomH2nFiles' (only one linked)
-            add_document(speaker['ZoomH2nFiles'], "h2n")
+
+            add_document(speaker['Attached recording'], "h2n")
+            # #Get H2n Audio file  'ZoomH2nFiles' (only one linked)
+            # add_document(speaker['ZoomH2nFiles'], "h2n")
             
-            #Get H6Primay Audio File 'ZoomH6PrimaryMic'
-            add_document(speaker['ZoomH6PrimaryMic'], "h6primary")
+            # #Get H6Primay Audio File 'ZoomH6PrimaryMic'
+            # add_document(speaker['ZoomH6PrimaryMic'], "h6primary")
             
-            #Get H6External Audio File 'ZoomH6ExternalMic'
-            add_document(speaker['ZoomH6ExternalMic'], "h6external",displaydoc=True)
+            # #Get H6External Audio File 'ZoomH6ExternalMic'
+            # add_document(speaker['ZoomH6ExternalMic'], "h6external",displaydoc=True)
             
-            #Get H6External Audio File and upload without downsampling
-            if not dont_keep_one and not skip_downsampled:
-                add_document(speaker['ZoomH6ExternalMic'], "h6external_original",skip_downsampled=True)
+            # #Get H6External Audio File and upload without downsampling
+            # if not dont_keep_one and not skip_downsampled:
+            #     add_document(speaker['ZoomH6ExternalMic'], "h6external_original",skip_downsampled=True)
             
-            #Get Backup Recordings 'BackupRecordings' (optional default:false)
-            if include_backup:
-                add_document(speaker['BackupRecordings'], "backup")
+            # #Get Backup Recordings 'BackupRecordings' (optional default:false)
+            # if include_backup:
+            #     add_document(speaker['BackupRecordings'], "backup")
             
             print("Finished Handling Speaker: "+speaker.get('identifier','None')+"  Processing Time: "+str(int(time.time()-start_time))+"s");
             
