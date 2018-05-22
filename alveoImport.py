@@ -142,7 +142,7 @@ def process_data(input_dir=None,apiKey=None,collection=None, verbose=False,
             #seems like each speaker only has one item. 
             #The item will have the documents listed below (in comments)
             #Item metadata located with audio files. They are identical except for 'SourceFile'
-            h2nMetadataPath = os.path.join(input_dir,speaker['ZoomH2nFiles']+'.json')
+            h2nMetadataPath = os.path.join(input_dir,speaker['Attached recording']+'.json')
             with open(h2nMetadataPath,'r') as item_metadata_file:
                 item_metadata = json.load(item_metadata_file)
                 
