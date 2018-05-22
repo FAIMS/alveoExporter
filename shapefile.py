@@ -42,6 +42,10 @@ import platform
 import lsb_release
 from alveoImport import process_data
 from collections import defaultdict
+import mimetypes, magic
+import traceback
+
+
 import zipfile
 try:
     import zlib
@@ -197,11 +201,6 @@ images = None
 overrideFormattedIdentifiers = None
 try:
     foo= json.load(open(sys.argv[3],"r"))
-    # print foo["Export Images and Files?"]
-    # if (foo["Export Images and Files?"] != []):
-    #     images = True
-    # else:
-    #     images = False
     images = True
     apiKey=foo["Alveo APIkey"]
     collectionName=foo["Collection Name"]
@@ -342,135 +341,107 @@ if (overrideFormattedIdentifiers):
 
 
 exportCon.commit()
-files = ['shape.sqlite3', 'noannotation.sqlite3']
-
-if (overrideFormattedIdentifiers):
-    files.append('override.out')
-    files.append('shape.out')
 
 
-if images:
-    for directory in importCon.execute("select distinct aenttypename, attributename from latestnondeletedaentvalue join attributekey using (attributeid) join latestnondeletedarchent using (uuid) join aenttype using (aenttypeid) where attributeisfile is not null and measure is not null"):
-        makeSurePathExists("%s/%s/%s" % (exportDir,clean(directory[0]), clean(directory[1])))
-
-    filehash = defaultdict(int)
-
-    # TODO handle multivalued outputs in csv
-
-    print "* File list exported:"
-    for filename in importCon.execute("select uuid, measure, freetext, certainty, attributename, aenttypename from latestnondeletedaentvalue join attributekey using (attributeid) join latestnondeletedarchent using (uuid) join aenttype using (aenttypeid) where attributeisfile is not null and measure is not null"):
-        try:        
-            oldPath = filename[1].split("/")
-            oldFilename = oldPath[2]
-            aenttypename = clean(filename[5])
-            attributename = clean(filename[4])
-            newFilename = "%s/%s/%s" % (aenttypename, attributename, oldFilename)
-            if os.path.isfile(originalDir+filename[1]):
-                if (fileNameType == "Identifier"):
-                    # print filename[0]
-                    
-                    filehash["%s%s" % (filename[0], attributename)] += 1
-                    
-
-                    foo = exportCon.execute("select identifier from %s where uuid = %s" % (aenttypename, filename[0]))
-                    identifier=cleanWithUnder(foo.fetchone()[0])
-
-                    r= re.search("(\.[^.]*)$",oldFilename)
-
-                    delimiter = ""
-                    
-                    if filename[2]:
-                        delimiter = "a"
-
-                    newFilename =  "%s/%s/%s_%s%s%s" % (aenttypename, attributename, identifier, filehash["%s%s" % (filename[0], attributename)],delimiter, r.group(0))
-                    
 
 
-                exifdata = exifCon.execute("select * from %s where uuid = %s" % (aenttypename, filename[0])).fetchone()
-                iddata = [] 
-                for id in importCon.execute("select coalesce(measure, vocabname, freetext) from latestnondeletedarchentidentifiers where uuid = %s union select aenttypename from latestnondeletedarchent join aenttype using (aenttypeid) where uuid = %s" % (filename[0], filename[0])):
-                    iddata.append(id[0])
+
+for directory in importCon.execute("select distinct aenttypename, attributename from latestnondeletedaentvalue join attributekey using (attributeid) join latestnondeletedarchent using (uuid) join aenttype using (aenttypeid) where attributeisfile is not null and measure is not null"):
+    makeSurePathExists("%s/%s/%s" % (exportDir,clean(directory[0]), clean(directory[1])))
+
+filehash = defaultdict(int)
+
+# TODO handle multivalued outputs in csv
+
+print "* File list exported:"
+for filename in importCon.execute("select uuid, measure, freetext, certainty, attributename, aenttypename from latestnondeletedaentvalue join attributekey using (attributeid) join latestnondeletedarchent using (uuid) join aenttype using (aenttypeid) where attributeisfile is not null and measure is not null"):
+    try:        
+        oldPath = filename[1].split("/")
+        oldFilename = oldPath[2]
+        aenttypename = clean(filename[5])
+        attributename = clean(filename[4])
+        newFilename = "%s/%s/%s" % (aenttypename, attributename, oldFilename)
+        if os.path.isfile(originalDir+filename[1]):
+            if (fileNameType == "Identifier"):
+                # print filename[0]
+                
+                filehash["%s%s" % (filename[0], attributename)] += 1
+                
+
+                foo = exportCon.execute("select identifier from %s where uuid = %s" % (aenttypename, filename[0]))
+                identifier=cleanWithUnder(foo.fetchone()[0])
+
+                r= re.search("(\.[^.]*)$",oldFilename)
+
+                delimiter = ""
+                
+                if filename[2]:
+                    delimiter = "a"
+
+                newFilename =  "%s/%s/%s_%s%s%s" % (aenttypename, attributename, identifier, filehash["%s%s" % (filename[0], attributename)],delimiter, r.group(0))
+                
 
 
-                shutil.copyfile(originalDir+filename[1], exportDir+newFilename)
-
-                mergedata = exifdata.copy()
-                mergedata.update(jsondata)
-                mergedata.pop("geospatialcolumn", None)
-                exifjson = {"SourceFile":exportDir+newFilename, 
-                            "UserComment": [json.dumps(mergedata)], 
-                            "ImageDescription": exifdata['identifier'], 
-                            "XPSubject": "Annotation: %s" % (filename[2]),
-                            "Keywords": iddata,
-                            "Artist": exifdata['createdBy'],
-                            "XPAuthor": exifdata['createdBy'],
-                            "Software": "FAIMS Project",
-                            "ImageID": exifdata['uuid'],
-                            "Copyright": jsondata['name']
+            exifdata = exifCon.execute("select * from %s where uuid = %s" % (aenttypename, filename[0])).fetchone()
+            iddata = [] 
+            for id in importCon.execute("select coalesce(measure, vocabname, freetext) from latestnondeletedarchentidentifiers where uuid = %s union select aenttypename from latestnondeletedarchent join aenttype using (aenttypeid) where uuid = %s" % (filename[0], filename[0])):
+                iddata.append(id[0])
 
 
-                            }
-                with open(exportDir+newFilename+".json", "w") as outfile:
-                    json.dump(exifjson, outfile)    
+            shutil.copyfile(originalDir+filename[1], exportDir+newFilename)
 
-                if imghdr.what(exportDir+newFilename):
-                    
-                    subprocess.call(["exiftool", "-m", "-q", "-sep", "\"; \"", "-overwrite_original", "-j=%s" % (exportDir+newFilename+".json"), exportDir+newFilename])
+            mergedata = exifdata.copy()
+            mergedata.update(jsondata)
+            mergedata.pop("geospatialcolumn", None)
+            exifjson = {"SourceFile":exportDir+newFilename, 
+                        "UserComment": [json.dumps(mergedata)], 
+                        "ImageDescription": exifdata['identifier'], 
+                        "XPSubject": "Annotation: %s" % (filename[2]),
+                        "Keywords": iddata,
+                        "Artist": exifdata['createdBy'],
+                        "XPAuthor": exifdata['createdBy'],
+                        "Software": "FAIMS Project",
+                        "ImageID": exifdata['uuid'],
+                        "Copyright": jsondata['name']
 
 
-                exportCon.execute("update %s set %s = ? where uuid = ?" % (aenttypename, attributename), (newFilename, filename[0]))
-                print "    * %s" % (newFilename)
-                files.append(newFilename+".json")
-                files.append(newFilename)
-            else:
-                print "<b>Unable to find file %s, from uuid: %s" % (originalDir+filename[1], filename[0]) 
-        except:
-                print "<b>Unable to find file (exception thrown) %s, from uuid: %s" % (originalDir+filename[1], filename[0])    
+                        }
+            with open(exportDir+newFilename+".json", "w") as outfile:
+                json.dump(exifjson, outfile)    
 
+            if imghdr.what(exportDir+newFilename):
+                
+                subprocess.call(["exiftool", "-m", "-q", "-sep", "\"; \"", "-overwrite_original", "-j=%s" % (exportDir+newFilename+".json"), exportDir+newFilename])
+            if filename[0] not in outputFilename:
+                outputFilename[filename[0]] = {}
+            if attributename not in outputFilename[filename[0]]:
+                outputFilename[filename[0]][attributename] = {}
+            if filehash["%s%s" % (filename[0], attributename)]  not in outputFilename[filename[0]][attributename]:
+                outputFilename[filename[0]][attributename][filehash["%s%s" % (filename[0], attributename)]] = {}                    
+            outputAent[filename[0]] = aenttypename
+            outputFilename[filename[0]][attributename][filehash["%s%s" % (filename[0], attributename)]] = {"newFilename":newFilename,
+                                                               "mimeType":mime.from_file(originalDir+filename[1])
+                                                               }
+            
+            print "    * %s" % (newFilename)
+            files.append(newFilename+".json")
+            files.append(newFilename)
+        else:
+            print "<b>Unable to find file %s, from uuid: %s" % (originalDir+filename[1], filename[0]) 
+    except Exception as e:
+       
+
+        print "<b>Unable to find file (exception thrown) %s, from uuid: %s. Exception: %s" % (originalDir+filename[1], filename[0], traceback.format_exc())    
+
+for uuid in outputFilename:
+    for attribute in outputFilename[uuid]:
+        exportCon.execute("update %s set %s = ? where uuid = ?" % (outputAent[uuid], attribute), (json.dumps(outputFilename[uuid][attribute]) , uuid))
 
 
 
 
     # check input flag as to what filename to export
 
-shutil.copyfile(exportDB, shapeDB)
-
-shapeCon = sqlite3.connect(shapeDB)
-shapeCon.enable_load_extension(True)
-shapeCon.load_extension(LIBSPATIALITE)
-
-
-shapeCon.execute("drop view if exists latestNonDeletedArchEntFormattedIdentifiers;")
-shapeCon.execute("""
-CREATE VIEW latestNonDeletedArchEntFormattedIdentifiers as 
-select uuid, aenttypeid, aenttypename, group_concat(response, '') as response, null as deleted 
-from ( 
-  select uuid, aenttypeid, aenttypename, group_concat(format(formatstring, vocabname, measure, null, null), appendcharacterstring) as response, null as deleted, aentcountorder 
-  from ( 
-    select uuid, aenttypeid, aenttypename, replace(replace(formatstring, char(10),''), char(13),'') as formatstring, vocabname, replace(replace(measure, char(13), '\r'), char(10), '\n') as measure, replace(replace(freetext, char(13), '\r'), char(10), '\n') as freetext, certainty, appendcharacterstring, null as deleted, aentcountorder, vocabcountorder, attributeid 
-    from latestNonDeletedArchent 
-      JOIN aenttype using (aenttypeid) 
-      JOIN (select * from idealaent where isIdentifier='true') using (aenttypeid) 
-      join attributekey  using (attributeid) 
-      left outer join latestNonDeletedAentValue using (uuid, attributeid) 
-      left outer join vocabulary using (attributeid, vocabid) 
-    order by uuid, aentcountorder, vocabcountorder 
-  ) 
-  group by uuid, attributeid 
-  having response is not null 
-  order by uuid, aentcountorder) 
-group by uuid 
-order by uuid;
-""");
-
-
-for row in importCon.execute("select aenttypename, geometrytype(geometryn(geospatialcolumn,1)) as geomtype, count(distinct geometrytype(geometryn(geospatialcolumn,1))) from latestnondeletedarchent join aenttype using (aenttypeid) where geomtype is not null group by aenttypename having  count(distinct geometrytype(geometryn(geospatialcolumn,1))) = 1"):
-    cmd = ["spatialite_tool", "-e", "-shp", "%s" % (clean(row[0]).decode("ascii")), "-d", "%snoannotation.sqlite3" % (exportDir), "-t", "%s" % (clean(row[0])), "-c", "utf-8", "-g", "geospatialcolumn", "-s", "%s" % (srid), "--type", "%s" % (row[1])]
-    files.append("%s.dbf" % (clean(row[0])))
-    files.append("%s.shp" % (clean(row[0])))
-    files.append("%s.shx" % (clean(row[0])))
-    # print cmd
-    subprocess.call(cmd, cwd=exportDir)
 
 for at in importCon.execute("select aenttypename from aenttype"):
     aenttypename = "%s" % (clean(at[0]))
@@ -489,39 +460,7 @@ for at in importCon.execute("select aenttypename from aenttype"):
     csv_writer.writerow([i[0] for i in cursor.description]) # write headers
     csv_writer.writerows(cursor)
 
-    #spatialite_tool -e -shp surveyUnitTransectBuffer -d db.sqlite3 -t surveyUnitWithTransectBuffer -c utf-8 -g surveyBuffer --type polygon
-
-relntypequery = '''select distinct relntypeid, relntypename from relntype join latestnondeletedrelationship using (relntypeid);'''
-
-relnquery = '''select parent.uuid as fromuuid, child.uuid as touuid, parent.participatesverb 
-                 from (select * 
-                        from latestnondeletedaentreln 
-                        join relationship using (relationshipid)  
-                       where relationshipid in (select relationshipid 
-                                                  from relationship 
-                                                  join relntype using (relntypeid) 
-                                                 where relntypename = ?)
-                      ) parent 
-                 join (latestnondeletedaentreln 
-                       join relationship using (relationshipid)
-                       ) child on (parent.relationshipid = child.relationshipid and parent.uuid != child.uuid)  
-                 join user using (userid)'''
-
-
-relntypecursor = importCon.cursor()
-relncursor = importCon.cursor()
-for relntypeid, relntypename in relntypecursor.execute(relntypequery): 
-    relncursor.execute(relnquery, [relntypename])
-    exportCon.execute("CREATE TABLE %s (parentuuid TEXT, childuuid TEXT, participatesverb TEXT);" % (clean(relntypename)))
-    for i in relncursor:
-        exportCon.execute("INSERT INTO %s VALUES(?,?,?)" % (clean(relntypename)), i)
-        
-    files.append("Relationship-%s.csv" % (clean(relntypename)))
-    relncursor.execute(relnquery, [relntypename])
-    csv_writer = UnicodeWriter(open(exportDir+"Relationship-%s.csv" % (clean(relntypename)), "wb+"))
-    csv_writer.writerow([i[0] for i in relncursor.description]) # write headers
-    csv_writer.writerows(relncursor)
-
+    
 
 
 process_data(input_dir=exportDir, 
