@@ -19,6 +19,14 @@ from lib2to3.pgen2.token import STAR
 import json
 import tarfile
 import shutil
+import tempfile
+import glob
+from pprint import pprint
+
+
+# https://urllib3.readthedocs.io/en/latest/advanced-usage.html#ssl-warnings (probably should be fixed in pyalveo)
+import urllib3
+urllib3.disable_warnings()
 
 DEBUG = 1
 TESTRUN = 0
@@ -142,39 +150,70 @@ def process_data(input_dir=None,apiKey=None,collection=None, verbose=False,
             #seems like each speaker only has one item. 
             #The item will have the documents listed below (in comments)
             #Item metadata located with audio files. They are identical except for 'SourceFile'
-            h2nMetadataPath = os.path.join(input_dir,speaker['AttachedRecording']+'.json')
-            with open(h2nMetadataPath,'r') as item_metadata_file:
-                item_metadata = json.load(item_metadata_file)
-                
-            if DELETE: #Get rid of 'and False' when we are able to delete
-                try:
-                    r = client.delete_item("https://staging.alveo.edu.au/catalog/faims-test/"+item_metadata['ImageID'])
-                    print("Deleting Item - Result: "+str(r))
-                except pyalveo.APIError, e:
-                    if e.http_status_code==404:
-                        pass
-            
-            item_metadata.pop("SourceFile",None)
-            item_metadata['dcterms:title'] = item_metadata.pop('ImageDescription','')
-            item_metadata['dcterms:creator'] = item_metadata.pop('XPAuthor','')
-            item_metadata['dcterms:created'] = item_metadata['Keywords'][0] #Should be date in 1st position
-            item_metadata['olac:speaker'] = speaker_uri
-            item_metadata['dcterms:created'] = speaker.get('createdAtGMT',None)[:10]
-            
-            try:
-                item_uri = client.add_item(collection_uri, item_metadata['ImageID'], item_metadata)
-                print("Added Item: "+item_uri)
-            except pyalveo.APIError, e:
-                if e.http_status_code==412:
-                    item_uri = BASE_URL+"catalog/"+collection+"/"+speaker['uuid']
-                    print("Skipping Add Item"+item_metadata.get('dcterms:title','None')+": Item already exists. URI: "+item_uri)
-                    continue
-            
-            #Get photo of concent form 'PhotoOfSignedConsentForm'
-            add_document(speaker['PhotoOfSignedConsentForm'], "consentform", skip_downsampled=True)
-            
 
-            add_document(speaker['AttachedRecording'], "h2n")
+            if DEBUG:
+                pprint(speaker)
+            
+            # First we get all the attached files. I've made a known file (always present) of attachedfiledump.csv
+            allFiles = []
+            with open(os.path.join(input_dir, "attachedfiledump.csv")) as csvfile:
+                # if there's utf characters in here, python2 will break down.
+                csvreader = csv.DictReader(csvfile)
+                for row in csvreader:
+                    allFiles.append(row)
+
+            if DEBUG:
+                pprint(allFiles)
+
+            for file in allFiles:
+                # First, get entity metadata
+                entityMetadataPath = os.path.join(input_dir, file["filename"]+'.json')
+                with open(entityMetadataPath,'r') as item_metadata_file:
+                    item_metadata = json.load(item_metadata_file)
+                    entity_item_metadata = json.loads(item_metadata["UserComment"][0])
+                if DEBUG:
+                    pprint(item_metadata)
+                    
+                    # entity_item_metadata contains the fill record. 
+                    pprint(entity_item_metadata)
+
+                    #Ah, this metadata is all exify. Which is useful?
+
+                item_metadata.pop("SourceFile",None)
+                item_metadata['dcterms:title'] = item_metadata.pop('ImageDescription','')
+                item_metadata['dcterms:creator'] = item_metadata.pop('XPAuthor','')
+                item_metadata['dcterms:created'] = entity_item_metadata["createdAtGMT"] #Created At is system produced
+                item_metadata['olac:speaker'] = speaker_uri # Not quite sure what this is, so I'm not going to touch it.
+                item_metadata['dcterms:created'] = entity_item_metadata["createdAtGMT"][:10] #This is the same variable as above?
+
+                # BBS: I'm not sure what to do with this, so I'm going to just skip this part.
+
+                # if DELETE: #Get rid of 'and False' when we are able to delete
+                #     try:
+                #         r = client.delete_item("https://staging.alveo.edu.au/catalog/faims-test/"+item_metadata['ImageID'])
+                #         print("Deleting Item - Result: "+str(r))
+                #     except pyalveo.APIError, e:
+                #         if e.http_status_code==404:
+                #             pass
+            
+          
+            
+                try:
+                    item_uri = client.add_item(collection_uri, item_metadata['ImageID'], item_metadata)
+                    print("Added Item: "+item_uri)
+                except pyalveo.APIError, e:
+                    if e.http_status_code==412:
+                        item_uri = BASE_URL+"catalog/"+collection+"/"+speaker['uuid']
+                        print("Skipping Add Item"+item_metadata.get('dcterms:title','None')+": Item already exists. URI: "+item_uri)
+                        continue
+                if file["mimeType"] == "image/jpeg":
+                    #This is a photo
+                    add_document(file["filename"], file["attribute"], skip_downsampled=True)
+                
+                if file["mimeType"] == "audio/x-wav":
+                    add_document(file["filename"], file["attribute"])
+
+            # add_document(speaker['AttachedRecording'], "h2n")
             # #Get H2n Audio file  'ZoomH2nFiles' (only one linked)
             # add_document(speaker['ZoomH2nFiles'], "h2n")
             
@@ -233,6 +272,7 @@ def downsampleAudio(file,resultName="downsampled."+DOWNSAMPLED_FORMAT, verbose=F
 
 def main(argv=None): # IGNORE:C0111
     '''Command line options.'''
+    inputDir = tempfile.mkdtemp()
 
     if argv is None:
         argv = sys.argv
@@ -240,11 +280,9 @@ def main(argv=None): # IGNORE:C0111
         sys.argv.extend(argv)
 
     try:
+
         # Setup argument parser
         parser = ArgumentParser(formatter_class=RawDescriptionHelpFormatter)
-        parser.add_argument("-j", "--faimsJSON", dest="faimsJSON", help="The json file from the faims export interface." )
-        parser.add_argument("-t", "--faimsTarballDir", dest="faimsTarball", help="The json file from the faims export interface." )
-
         parser.add_argument("-v", "--verbose", dest="verbose", action="count", help="set verbosity level [default: %(default)s]")
         parser.add_argument("-i", "--input", dest="input", help="The Root file to be Imported", metavar="path" )
         parser.add_argument("-k", "--apikey", dest="apikey", help="The API Key as Generated by Alveo. See https://app.alveo.edu.au/")
@@ -263,19 +301,15 @@ def main(argv=None): # IGNORE:C0111
         dont_keep_one = True if args.dontkeepone else False
         
 
-        if faimsJson:
-            jsondata = json.load(open(args.faimsJson))
-            args.apikey = jsondata["Alveo APIkey"]
-            args.collection = jsondata["Collection Name"]
+        
 
         # unpack the tarball
-        inputDir = tempfile.mkdtemp()
         tar = tarfile.open(args.input)
         tar.extractall(path=inputDir)
 
 
 
-        return process_data(input_dir=inputDir, 
+        return process_data(input_dir=os.path.join(inputDir, os.listdir(inputDir)[0]), 
                             apiKey=args.apikey, 
                             collection=args.collection, 
                             skip_downsampled = skip_downsampled,
@@ -288,6 +322,7 @@ def main(argv=None): # IGNORE:C0111
         return 0
     finally:
         shutil.rmtree(inputDir)
+        
     #Uncomment for release version (so errors not displayed directly to users)
     #except Exception, e:
     #    if DEBUG or TESTRUN:

@@ -354,7 +354,7 @@ outputFilename =defaultdict(int)
 outputAent = defaultdict(int)
 mime = magic.Magic(mime=True)
 
-
+attachedfiledump = []
 print "* File list exported:"
 for filename in importCon.execute("select uuid, measure, freetext, certainty, attributename, aenttypename from latestnondeletedaentvalue join attributekey using (attributeid) join latestnondeletedarchent using (uuid) join aenttype using (aenttypeid) where attributeisfile is not null and measure is not null"):
     try:        
@@ -424,7 +424,12 @@ for filename in importCon.execute("select uuid, measure, freetext, certainty, at
             outputFilename[filename[0]][attributename][filehash["%s%s" % (filename[0], attributename)]] = {"newFilename":newFilename,
                                                                "mimeType":mime.from_file(originalDir+filename[1])
                                                                }
-            
+            attachedfiledump.append({"uuid":filename[0], 
+                          "aenttype": aenttypename,
+                          "attribute": attributename,
+                          "newFilename":newFilename,
+                          "mimeType":mime.from_file(originalDir+filename[1])})
+                                                               
             print "    * %s" % (newFilename)
         else:
             print "<b>Unable to find file %s, from uuid: %s" % (originalDir+filename[1], filename[0]) 
@@ -437,7 +442,11 @@ for uuid in outputFilename:
     for attribute in outputFilename[uuid]:
         exportCon.execute("update %s set %s = ? where uuid = ?" % (outputAent[uuid], attribute), (json.dumps(outputFilename[uuid][attribute]) , uuid))
 
-
+csv_writer = UnicodeWriter(open(exportDir+"attachedfiledump.csv", "wb+"))
+csv_writer.writerow(["uuid", "aenttype", "attribute", "filename", "mimeType"])
+for row in attachedfiledump:
+    print(row)
+    csv_writer.writerow([row["uuid"], row["aenttype"], row["attribute"], row["newFilename"], row["mimeType"]])
 
 
     # check input flag as to what filename to export
@@ -461,7 +470,7 @@ for at in importCon.execute("select aenttypename from aenttype"):
     csv_writer.writerows(cursor)
 
     
-
+csv_writer
 
 process_data(input_dir=exportDir, 
                     apiKey=apiKey, 
